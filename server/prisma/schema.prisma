@@ -1,0 +1,133 @@
+// This is your Prisma schema file.
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------
+// OUR APPLICATION MODELS START HERE
+// ------------------------------------
+
+// Model for all users (Customers and Vendors)
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String   // We will store a hashed password
+  role      UserRole @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Relations ---
+  // A user can have one shop (if they are a vendor)
+  shop Shop?
+  // A user can have many orders (if they are a customer)
+  orders Order[]
+  // A user can write many reviews
+  reviews Review[]
+}
+
+// Model for a Vendor's store
+model Shop {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // --- Relations ---
+  // A shop belongs to one User (the vendor)
+  user   User @relation(fields: [userId], references: [id])
+  userId Int  @unique // This ensures one user has only one shop
+
+  // A shop can have many products
+  products Product[]
+}
+
+// Model for the products being sold
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  price       Int      // We store price in cents (e.g., 1000 = $10.00)
+  imageUrl    String   // A link to the product image
+  stock       Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // --- Relations ---
+  // A product belongs to one shop
+  shop   Shop @relation(fields: [shopId], references: [id])
+  shopId Int
+
+  // A product can be in many order items
+  orderItems OrderItem[]
+
+  // A product can have many reviews
+  reviews Review[]
+}
+
+// Model for a customer's order
+model Order {
+  id        Int      @id @default(autoincrement())
+  status    String   @default("PENDING") // e.g., PENDING, PAID, SHIPPED
+  total     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Relations ---
+  // An order belongs to one customer
+  customer   User @relation(fields: [customerId], references: [id])
+  customerId Int
+
+  // An order is made up of many items
+  items OrderItem[]
+}
+
+// This "join table" connects Orders and Products
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  quantity  Int
+  price     Int      // The price of the product *at the time of purchase*
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Relations ---
+  // An order item belongs to one order
+  order   Order @relation(fields: [orderId], references: [id])
+  orderId Int
+
+  // An order item refers to one product
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+}
+
+// --- NEW: Model for Product Reviews ---
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int      // 1 to 5
+  comment   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- Relations ---
+  // A review is written by one User
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+
+  // A review belongs to one Product
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int
+}
+
+// This "enum" defines the allowed roles for a User
+enum UserRole {
+  CUSTOMER
+  VENDOR
+}
